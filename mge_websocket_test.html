@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGE WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .arena-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .arena-table th,
+        .arena-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        .arena-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .arena-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .arena-table tr:hover {
+            background-color: #e9ecef;
+        }
+        
+        .arena-table .arena-fighting {
+            background-color: #fff3cd !important;
+        }
+        
+        .arena-table .arena-fighting:hover {
+            background-color: #ffeaa7 !important;
+        }
+        
+        .arena-table .status-cell {
+            min-width: 120px;
+        }
+        
+        .arena-table .players-cell {
+            min-width: 200px;
+            max-width: 300px;
+        }
+        
+        .arena-table .actions-cell {
+            min-width: 150px;
+            white-space: nowrap;
+        }
+        
+        .arena-table .gamemode-cell {
+            min-width: 100px;
+        }
+        
+        @media (max-width: 768px) {
+            .arena-table .players-cell {
+                max-width: 150px;
+                font-size: 10px;
+            }
+            
+            .arena-table .actions-cell button {
+                font-size: 12px;
+                padding: 2px 4px;
+            }
+        }
+        
+        .player-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .player-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            background-color: #f8f9fa;
+            font-size: 13px;
+            position: relative;
+        }
+        
+        .player-card.in-arena {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        
+        .player-actions button {
+            padding: 4px 8px;
+            font-size: 11px;
+            margin: 0;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+            margin: 2px;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+        }
+        
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        
+        .player-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .stats-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .stats-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 400px;
+            max-width: 600px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        
+        .elo-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        
+        .ready-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 4px;
+        }
+        
+        .ready-indicator.ready {
+            background-color: #28a745;
+        }
+        
+        .ready-indicator.not-ready {
+            background-color: #dc3545;
+        }
+        
+        .filter-section {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .filter-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .server-stats {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .server-stats h4 {
+            margin: 0 0 10px 0;
+        }
+        
+        /* Event notification animations */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>MGE WebSocket Test Interface</h1>
+    
+    <div class="container">
+        <h2>Connection</h2>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <input type="text" id="serverUrl" value="ws://localhost:9001" placeholder="WebSocket URL">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    
+    <div class="container">
+        <h2>Quick Commands</h2>
+        <button onclick="getArenas()" id="getArenasBtn">Get Arenas</button>
+        <button onclick="getPlayers()" id="getPlayersBtn">Get Players</button>
+        <button onclick="getServerStatus()" id="getServerStatusBtn">Server Status</button>
+        <button onclick="refreshAll()" id="refreshBtn">Refresh All</button>
+    </div>
+    
+    <div class="container" id="serverStatsContainer" style="display: none;">
+        <h2>Server Statistics</h2>
+        <div id="serverStats" class="server-stats">
+            <!-- Server stats will be populated here -->
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Manual Player Management</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>Add Player to Arena</h3>
+                <select id="playerSelect">
+                    <option value="">Select Player...</option>
+                </select>
+                <select id="arenaSelect">
+                    <option value="">Select Arena...</option>
+                </select>
+                <button onclick="addPlayerToArena()" id="addPlayerBtn">Add to Arena</button>
+            </div>
+            <div>
+                <h3>Remove Player from Arena</h3>
+                <select id="playerRemoveSelect">
+                    <option value="">Select Player in Arena...</option>
+                </select>
+                <button onclick="removePlayerFromArenaManual()" id="removePlayerBtn">Remove from Arena</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Arenas</h2>
+        <div class="filter-section">
+            <h4>Filter by Game Mode:</h4>
+            <div class="filter-buttons" id="gameModeFilters">
+                <button class="filter-btn active" onclick="setGameModeFilter('all')">All</button>
+                <button class="filter-btn" onclick="setGameModeFilter('mge')">🎯 MGE</button>
+                <button class="filter-btn" onclick="setGameModeFilter('bball')">🏀 BBall</button>
+                <button class="filter-btn" onclick="setGameModeFilter('koth')">👑 KOTH</button>
+                <button class="filter-btn" onclick="setGameModeFilter('ammomod')">🔫 Ammomod</button>
+                <button class="filter-btn" onclick="setGameModeFilter('midair')">✈️ Midair</button>
+                <button class="filter-btn" onclick="setGameModeFilter('endif')">🔚 Endif</button>
+                <button class="filter-btn" onclick="setGameModeFilter('ultiduo')">⚔️ Ultiduo</button>
+                <button class="filter-btn" onclick="setGameModeFilter('turris')">🗼 Turris</button>
+                <button class="filter-btn" onclick="setGameModeFilter('2v2')">👥 2v2</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <h4>Filter by Status:</h4>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="setStatusFilter('all')">All</button>
+                    <button class="filter-btn" onclick="setStatusFilter('idle')">🟢 Available</button>
+                    <button class="filter-btn" onclick="setStatusFilter('fighting')">🔥 Fighting</button>
+                    <button class="filter-btn" onclick="setStatusFilter('waiting')">⏳ Waiting</button>
+                </div>
+            </div>
+        </div>
+        <table id="arenas" class="arena-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Arena</th>
+                    <th class="status-cell">Status</th>
+                    <th>Occupancy</th>
+                    <th class="gamemode-cell">Game Mode</th>
+                    <th class="players-cell">Players</th>
+                    <th class="actions-cell">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="arenaTableBody">
+            </tbody>
+        </table>
+        <div id="arenaPlaceholder">
+            <p>Not connected...</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Players</h2>
+        <div id="players" class="player-list">
+            <p>Not connected...</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Message Log</h2>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let ws = null;
+        let arenas = [];
+        let players = [];
+        let serverStats = null;
+        let currentGameModeFilter = 'all';
+        let currentStatusFilter = 'all';
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            if (connected) {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+            } else {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'status disconnected';
+            }
+            
+            // Update button states
+            updateButtonStates(connected);
+        }
+        
+        function connect() {
+            const url = document.getElementById('serverUrl').value;
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = function() {
+                    log('Connected to MGE WebSocket server');
+                    updateStatus(true);
+                };
+                
+                ws.onmessage = function(event) {
+                    log(`Received: ${event.data}`);
+                    
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleMessage(data);
+                    } catch (e) {
+                        log(`Error parsing JSON: ${e.message}`);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    log('Disconnected from server');
+                    updateStatus(false);
+                    ws = null;
+                };
+                
+                ws.onerror = function(error) {
+                    log(`WebSocket error: ${error}`);
+                    updateStatus(false);
+                };
+                
+            } catch (e) {
+                log(`Connection error: ${e.message}`);
+            }
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function send(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const msgStr = JSON.stringify(message);
+                log(`Sending: ${msgStr}`);
+                ws.send(msgStr);
+            } else {
+                log('Not connected to server');
+            }
+        }
+        
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'welcome':
+                    log(`Welcome message: ${data.message}`);
+                    refreshAll();
+                    break;
+                    
+                case 'response':
+                    if (data.command === 'get_arenas') {
+                        arenas = data.arenas;
+                        updateArenaDisplay();
+                        updateArenaSelect();
+                    } else if (data.command === 'get_players') {
+                        players = data.players;
+                        updatePlayerDisplay();
+                        updatePlayerSelect();
+                    } else if (data.command === 'get_server_status') {
+                        serverStats = data;
+                        updateServerStatsDisplay();
+                    } else if (data.command === 'get_player_stats') {
+                        showPlayerStatsModal(data);
+                    } else if (data.command === 'get_arena_details') {
+                        showArenaDetailsModal(data);
+                    }
+                    break;
+                    
+                case 'success':
+                    log(`Success: ${data.message}`);
+                    // Show additional info if available
+                    if (data.player_name && data.arena_id) {
+                        if (data.message.includes('removed')) {
+                            log(`${data.player_name} removed from Arena ${data.arena_id}`);
+                        } else if (data.message.includes('added')) {
+                            log(`${data.player_name} added to Arena ${data.arena_id}`);
+                        }
+                    }
+                    // Refresh data after successful operation
+                    setTimeout(refreshAll, 500);
+                    break;
+                    
+                case 'error':
+                    log(`Error: ${data.message}`);
+                    break;
+                    
+                case 'event':
+                    handleRealTimeEvent(data);
+                    break;
+            }
+        }
+        
+        // ===== REAL-TIME EVENT HANDLING =====
+        
+        function handleRealTimeEvent(data) {
+            const eventTime = new Date(data.timestamp * 1000).toLocaleTimeString();
+            
+            switch (data.event) {
+                case 'player_arena_added':
+                    log(`🎯 [${eventTime}] ${data.player_name} joined ${getArenaName(data.arena_id)} (Slot ${data.slot})`);
+                    showEventNotification(`${data.player_name} joined arena`, 'info');
+                    refreshArenaAndPlayerData();
+                    break;
+                    
+                case 'player_arena_removed':
+                    log(`🚪 [${eventTime}] ${data.player_name} left ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`${data.player_name} left arena`, 'info');
+                    refreshArenaAndPlayerData();
+                    break;
+                    
+                case 'match_start_1v1':
+                    log(`⚔️ [${eventTime}] 1v1 Match Started: ${data.player1_name} vs ${data.player2_name} in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`1v1 Match: ${data.player1_name} vs ${data.player2_name}`, 'match');
+                    refreshArenaData();
+                    break;
+                    
+                case 'match_end_1v1':
+                    log(`🏆 [${eventTime}] 1v1 Match Ended: ${data.winner_name} beat ${data.loser_name} (${data.winner_score}-${data.loser_score}) in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`${data.winner_name} won ${data.winner_score}-${data.loser_score}`, 'victory');
+                    refreshArenaAndPlayerData();
+                    break;
+                    
+                case 'match_start_2v2':
+                    log(`👥 [${eventTime}] 2v2 Match Started: ${data.team1_player1_name} & ${data.team1_player2_name} vs ${data.team2_player1_name} & ${data.team2_player2_name} in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`2v2 Match Started`, 'match');
+                    refreshArenaData();
+                    break;
+                    
+                case 'match_end_2v2':
+                    const winningTeamStr = data.winning_team === 2 ? "Red Team" : "Blue Team";
+                    log(`🏆 [${eventTime}] 2v2 Match Ended: ${winningTeamStr} won (${data.winning_score}-${data.losing_score}) in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`${winningTeamStr} won ${data.winning_score}-${data.losing_score}`, 'victory');
+                    refreshArenaAndPlayerData();
+                    break;
+                    
+                case 'arena_player_death':
+                    log(`💀 [${eventTime}] ${data.victim_name} was killed by ${data.attacker_name} in ${getArenaName(data.arena_id)}`);
+                    // Don't refresh for deaths - too frequent, just log
+                    break;
+                    
+                case 'player_elo_change':
+                    const eloChangeStr = data.elo_change > 0 ? `+${data.elo_change}` : `${data.elo_change}`;
+                    log(`📊 [${eventTime}] ${data.player_name} ELO: ${data.old_elo} → ${data.new_elo} (${eloChangeStr}) in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`${data.player_name} ${eloChangeStr} ELO`, 'elo');
+                    // Refresh player data to update ELO display
+                    setTimeout(() => refreshPlayerData(), 1000);
+                    break;
+                    
+                case '2v2_ready_start':
+                    log(`⏱️ [${eventTime}] 2v2 Ready phase started in ${getArenaName(data.arena_id)}`);
+                    showEventNotification(`2v2 Ready phase started`, 'ready');
+                    refreshArenaData();
+                    break;
+                    
+                case '2v2_player_ready':
+                    const readyStr = data.ready_status ? "is ready" : "is not ready";
+                    log(`✅ [${eventTime}] ${data.player_name} ${readyStr} in ${getArenaName(data.arena_id)}`);
+                    refreshArenaAndPlayerData();
+                    break;
+                    
+                default:
+                    log(`❓ [${eventTime}] Unknown event: ${data.event}`);
+            }
+        }
+        
+        // Helper function to get arena name by ID for event logging
+        function getArenaName(arenaId) {
+            const arena = arenas.find(a => a.id === arenaId);
+            return arena ? arena.name : `Arena ${arenaId}`;
+        }
+        
+        // Show visual notification for important events
+        function showEventNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `event-notification event-${type}`;
+            notification.textContent = message;
+            
+            // Style the notification
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 10px 15px;
+                border-radius: 5px;
+                color: white;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            // Set background color based on type
+            switch (type) {
+                case 'info': notification.style.backgroundColor = '#17a2b8'; break;
+                case 'match': notification.style.backgroundColor = '#fd7e14'; break;
+                case 'victory': notification.style.backgroundColor = '#28a745'; break;
+                case 'elo': notification.style.backgroundColor = '#6f42c1'; break;
+                case 'ready': notification.style.backgroundColor = '#20c997'; break;
+                default: notification.style.backgroundColor = '#6c757d'; break;
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Remove notification after 4 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+        
+        // Optimized refresh functions for real-time updates
+        function refreshArenaAndPlayerData() {
+            getArenas();
+            getPlayers();
+        }
+        
+        function refreshArenaData() {
+            getArenas();
+        }
+        
+        function refreshPlayerData() {
+            getPlayers();
+        }
+        
+        function getArenas() {
+            send({ command: 'get_arenas' });
+        }
+        
+        function getPlayers() {
+            send({ command: 'get_players' });
+        }
+        
+        function getServerStatus() {
+            send({ command: 'get_server_status' });
+        }
+        
+        function getPlayerStats(playerId) {
+            send({ command: 'get_player_stats', player_id: playerId });
+        }
+        
+        function getArenaDetails(arenaId) {
+            send({ command: 'get_arena_details', arena_id: arenaId });
+        }
+        
+        function setPlayerReady(playerId, ready) {
+            send({ command: 'set_player_ready', player_id: playerId, ready: ready });
+        }
+        
+        function refreshAll() {
+            getArenas();
+            getPlayers();
+            getServerStatus();
+        }
+        
+        function addPlayerToArena(playerId, arenaId) {
+            // If called from button, get values from parameters
+            // If called from dropdown, get values from selects
+            if (!playerId) {
+                playerId = document.getElementById('playerSelect').value;
+                arenaId = document.getElementById('arenaSelect').value;
+            }
+            
+            if (!playerId || !arenaId) {
+                log('Please select both player and arena');
+                return;
+            }
+            
+            send({
+                command: 'add_player_to_arena',
+                player_id: parseInt(playerId),
+                arena_id: parseInt(arenaId)
+            });
+        }
+        
+        function removePlayerFromArena(playerId) {
+            if (!playerId) {
+                log('Invalid player ID');
+                return;
+            }
+            
+            send({
+                command: 'remove_player_from_arena',
+                player_id: parseInt(playerId)
+            });
+        }
+        
+        function showArenaSelector(playerId) {
+            const playerName = players.find(p => p.id === playerId)?.name || 'Unknown';
+            const arenaOptions = arenas.map(arena => 
+                `<option value="${arena.id}">${arena.name || `Arena ${arena.id}`} (${arena.players}/${arena.max})</option>`
+            ).join('');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+                justify-content: center; z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px; min-width: 300px;">
+                    <h3>Add ${playerName} to Arena</h3>
+                    <select id="quickArenaSelect" style="width: 100%; padding: 8px; margin: 10px 0;">
+                        <option value="">Select Arena...</option>
+                        ${arenaOptions}
+                    </select>
+                    <div style="margin-top: 15px;">
+                        <button onclick="executeQuickAdd(${playerId})" class="btn-success">Add to Arena</button>
+                        <button onclick="closeModal()" style="margin-left: 10px;">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+            window.currentModal = modal;
+        }
+        
+        function executeQuickAdd(playerId) {
+            const arenaId = document.getElementById('quickArenaSelect').value;
+            if (arenaId) {
+                addPlayerToArena(playerId, arenaId);
+                closeModal();
+            } else {
+                log('Please select an arena');
+            }
+        }
+        
+        function closeModal() {
+            if (window.currentModal) {
+                document.body.removeChild(window.currentModal);
+                window.currentModal = null;
+            }
+        }
+        
+        function showPlayerSelector(arenaId) {
+            const availablePlayers = players.filter(p => !p.inArena);
+            const arenaInfo = arenas.find(a => a.id === arenaId);
+            
+            if (availablePlayers.length === 0) {
+                log('No available players to add to arena');
+                return;
+            }
+            
+            const playerOptions = availablePlayers.map(player => 
+                `<option value="${player.id}">${player.name}</option>`
+            ).join('');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+                justify-content: center; z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px; min-width: 300px;">
+                    <h3>Add Player to Arena ${arenaId}</h3>
+                    <p>Arena Type: ${arenaInfo?.is2v2 ? '2v2' : '1v1'} | Players: ${arenaInfo?.players}/${arenaInfo?.max}</p>
+                    <select id="quickPlayerSelect" style="width: 100%; padding: 8px; margin: 10px 0;">
+                        <option value="">Select Player...</option>
+                        ${playerOptions}
+                    </select>
+                    <div style="margin-top: 15px;">
+                        <button onclick="executeQuickAddToArena(${arenaId})" class="btn-success">Add Player</button>
+                        <button onclick="closeModal()" style="margin-left: 10px;">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+            window.currentModal = modal;
+        }
+        
+        function executeQuickAddToArena(arenaId) {
+            const playerId = document.getElementById('quickPlayerSelect').value;
+            if (playerId) {
+                addPlayerToArena(playerId, arenaId);
+                closeModal();
+            } else {
+                log('Please select a player');
+            }
+        }
+        
+        function updateArenaDisplay() {
+            const arenaTable = document.getElementById('arenas');
+            const arenaTableBody = document.getElementById('arenaTableBody');
+            const arenaPlaceholder = document.getElementById('arenaPlaceholder');
+            
+            if (arenas.length === 0) {
+                arenaTable.style.display = 'none';
+                arenaPlaceholder.innerHTML = '<p>No arenas found</p>';
+                arenaPlaceholder.style.display = 'block';
+                return;
+            }
+            
+            // Filter arenas based on current filters
+            const filteredArenas = arenas.filter(arena => {
+                // Game mode filter
+                if (currentGameModeFilter !== 'all') {
+                    const hasGameMode = checkArenaGameMode(arena, currentGameModeFilter);
+                    if (!hasGameMode) return false;
+                }
+                
+                // Status filter
+                if (currentStatusFilter !== 'all') {
+                    const matchesStatus = checkArenaStatus(arena, currentStatusFilter);
+                    if (!matchesStatus) return false;
+                }
+                
+                return true;
+            });
+            
+            if (filteredArenas.length === 0) {
+                arenaTable.style.display = 'none';
+                arenaPlaceholder.innerHTML = '<p>No arenas match current filters</p>';
+                arenaPlaceholder.style.display = 'block';
+                return;
+            }
+            
+            // Show table and hide placeholder
+            arenaTable.style.display = 'table';
+            arenaPlaceholder.style.display = 'none';
+            
+            // Clear existing rows
+            arenaTableBody.innerHTML = '';
+            
+            // Create table rows
+            filteredArenas.forEach(arena => {
+                const row = document.createElement('tr');
+                
+                // Add fighting class for visual distinction
+                if (arena.status === 3) { // AS_FIGHT
+                    row.className = 'arena-fighting';
+                }
+                
+                // Find players in this arena
+                const playersInArena = players.filter(p => p.arena === arena.id);
+                
+                // Build players list
+                let playersDisplay = '';
+                if (playersInArena.length > 0) {
+                    playersDisplay = playersInArena.map(p => {
+                        let readyIndicator = '';
+                        if (arena.is2v2 && p.ready !== undefined) {
+                            readyIndicator = `<span class="ready-indicator ${p.ready ? 'ready' : 'not-ready'}" title="${p.ready ? 'Ready' : 'Not Ready'}"></span>`;
+                        }
+                        return `
+                            <span style="display: inline-block; margin: 2px 4px 2px 0; padding: 2px 4px; background: #e9ecef; border-radius: 3px; font-size: 11px;">
+                                ${p.name}${readyIndicator}
+                                <button onclick="removePlayerFromArena(${p.id})" 
+                                        style="margin-left: 4px; padding: 1px 3px; font-size: 9px; background: #dc3545; color: white; border: none; border-radius: 2px; cursor: pointer;" title="Remove player">×</button>
+                            </span>
+                        `;
+                    }).join('');
+                } else {
+                    playersDisplay = '<em style="color: #6c757d;">Empty</em>';
+                }
+                
+                // Build action buttons
+                const actionButtons = [];
+                
+                if (arena.players < arena.max) {
+                    const availablePlayers = players.filter(p => !p.inArena);
+                    if (availablePlayers.length > 0) {
+                        actionButtons.push(`<button onclick="showPlayerSelector(${arena.id})" class="btn-sm btn-success" title="Add player to arena">➕</button>`);
+                    }
+                }
+                
+                actionButtons.push(`<button onclick="getArenaDetails(${arena.id})" class="btn-sm" style="background: #17a2b8; color: white;" title="View arena details">ℹ️</button>`);
+                
+                // Create table cells
+                row.innerHTML = `
+                    <td><strong>${arena.name || `Arena ${arena.id}`}</strong></td>
+                    <td class="status-cell">${arena.status_name || arena.status}</td>
+                    <td><strong>${arena.players}/${arena.max}</strong></td>
+                    <td class="gamemode-cell">${arena.game_mode_names || (arena.is2v2 ? '👥 2v2' : '🎯 1v1')}</td>
+                    <td class="players-cell">${playersDisplay}</td>
+                    <td class="actions-cell">${actionButtons.join(' ')}</td>
+                `;
+                
+                arenaTableBody.appendChild(row);
+            });
+        }
+        
+        function updatePlayerDisplay() {
+            const playersDiv = document.getElementById('players');
+            
+            if (players.length === 0) {
+                playersDiv.innerHTML = '<p>No players found</p>';
+                return;
+            }
+            
+            playersDiv.innerHTML = '';
+            players.forEach(player => {
+                const playerCard = document.createElement('div');
+                playerCard.className = `player-card ${player.inArena ? 'in-arena' : ''}`;
+                
+                // Create action buttons based on player status
+                let actionButtons = '';
+                const buttons = [];
+                
+                if (player.inArena) {
+                    buttons.push(`<button onclick="removePlayerFromArena(${player.id})" class="btn-sm btn-danger">Remove</button>`);
+                    buttons.push(`<button onclick="showArenaSelector(${player.id})" class="btn-sm btn-warning">Move</button>`);
+                    
+                    // Add 2v2 ready controls
+                    if (player.ready !== undefined) {
+                        const readyBtn = player.ready ? 
+                            `<button onclick="setPlayerReady(${player.id}, false)" class="btn-sm" style="background: #dc3545; color: white;">Unready</button>` :
+                            `<button onclick="setPlayerReady(${player.id}, true)" class="btn-sm" style="background: #28a745; color: white;">Ready</button>`;
+                        buttons.push(readyBtn);
+                    }
+                } else {
+                    buttons.push(`<button onclick="showArenaSelector(${player.id})" class="btn-sm btn-success">Add to Arena</button>`);
+                }
+                
+                buttons.push(`<button onclick="getPlayerStats(${player.id})" class="btn-sm" style="background: #17a2b8; color: white;">Stats</button>`);
+                
+                if (buttons.length > 0) {
+                    actionButtons = `<div class="player-actions">${buttons.join(' ')}</div>`;
+                }
+                
+                // Build player info
+                let playerInfo = `<strong>${player.name}</strong><br><small>ID: ${player.id}</small>`;
+                
+                // Add ELO if available
+                if (player.elo !== undefined) {
+                    playerInfo += `<br><strong>ELO: ${player.elo}</strong>`;
+                }
+                
+                // Add W/L if available
+                if (player.wins !== undefined && player.losses !== undefined) {
+                    playerInfo += `<br><small>W/L: ${player.wins}/${player.losses}</small>`;
+                }
+                
+                // Add arena info
+                let arenaInfo = '';
+                if (player.arena > 0) {
+                    arenaInfo = `<strong>Arena ${player.arena}</strong>`;
+                    if (player.teammate) {
+                        arenaInfo += `<br><small>Teammate: ${player.teammate}</small>`;
+                    }
+                    if (player.ready !== undefined) {
+                        const readyStatus = player.ready ? '✅ Ready' : '❌ Not Ready';
+                        arenaInfo += `<br><small>${readyStatus}</small>`;
+                    }
+                } else {
+                    arenaInfo = '<em>None</em>';
+                }
+                
+                playerCard.innerHTML = `
+                    ${playerInfo}
+                    <br><small>Arena: ${arenaInfo}</small>
+                    ${actionButtons}
+                `;
+                
+                playersDiv.appendChild(playerCard);
+            });
+        }
+        
+        function updateArenaSelect() {
+            const select = document.getElementById('arenaSelect');
+            select.innerHTML = '<option value="">Select Arena...</option>';
+            
+            arenas.forEach(arena => {
+                const option = document.createElement('option');
+                option.value = arena.id;
+                option.textContent = `${arena.name || `Arena ${arena.id}`} (${arena.players}/${arena.max})`;
+                select.appendChild(option);
+            });
+        }
+        
+        function updatePlayerSelect() {
+            const select = document.getElementById('playerSelect');
+            select.innerHTML = '<option value="">Select Player...</option>';
+            
+            players.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = `${player.name} ${player.inArena ? '(in arena)' : ''}`;
+                select.appendChild(option);
+            });
+            
+            // Update remove player select (only players in arenas)
+            const removeSelect = document.getElementById('playerRemoveSelect');
+            if (removeSelect) {
+                removeSelect.innerHTML = '<option value="">Select Player in Arena...</option>';
+                
+                players.filter(p => p.inArena).forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    const playerArena = arenas.find(a => a.id === player.arena);
+                    const arenaName = playerArena ? playerArena.name || `Arena ${player.arena}` : `Arena ${player.arena}`;
+                    option.textContent = `${player.name} (${arenaName})`;
+                    removeSelect.appendChild(option);
+                });
+            }
+        }
+        
+        function removePlayerFromArenaManual() {
+            const playerId = document.getElementById('playerRemoveSelect').value;
+            if (!playerId) {
+                log('Please select a player to remove');
+                return;
+            }
+            removePlayerFromArena(playerId);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // ===== NEW FEATURE FUNCTIONS =====
+        
+        function updateServerStatsDisplay() {
+            if (!serverStats) return;
+            
+            const statsDiv = document.getElementById('serverStats');
+            const container = document.getElementById('serverStatsContainer');
+            
+            let gameModeBreakdown = '';
+            if (serverStats.game_mode_stats && serverStats.game_mode_stats.length > 0) {
+                gameModeBreakdown = serverStats.game_mode_stats.map(mode => 
+                    `<span style="margin-right: 10px;">${mode.name}: ${mode.count}</span>`
+                ).join('');
+            }
+            
+            statsDiv.innerHTML = `
+                <h4>📊 Server Overview</h4>
+                <p><strong>Players:</strong> ${serverStats.current_clients}/${serverStats.max_clients} total, ${serverStats.total_players_in_arenas || 0} in arenas</p>
+                <p><strong>Arenas:</strong> ${serverStats.arena_count} total, ${serverStats.active_fights || 0} fighting, ${serverStats.ready_phases || 0} waiting</p>
+                <p><strong>Map:</strong> ${serverStats.current_map}</p>
+                ${gameModeBreakdown ? `<p><strong>Game Modes:</strong> ${gameModeBreakdown}</p>` : ''}
+            `;
+            
+            container.style.display = 'block';
+        }
+        
+        function showPlayerStatsModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'stats-modal';
+            
+            let statsContent = '';
+            if (data.stats) {
+                const stats = data.stats;
+                statsContent = `
+                    <div class="elo-display">${stats.elo} ELO</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.wins}</div>
+                            <div class="stat-label">Wins</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.losses}</div>
+                            <div class="stat-label">Losses</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.win_percentage?.toFixed(1) || 0}%</div>
+                            <div class="stat-label">Win Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.kdr?.toFixed(2) || 0}</div>
+                            <div class="stat-label">K/D Ratio</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.kills}</div>
+                            <div class="stat-label">Kills</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.deaths}</div>
+                            <div class="stat-label">Deaths</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                statsContent = '<p>No statistics available for this player.</p>';
+            }
+            
+            let currentArenaInfo = '';
+            if (data.current_arena) {
+                currentArenaInfo = `
+                    <h4>Current Arena</h4>
+                    <p>Arena ${data.current_arena} (${data.in_2v2 ? '2v2' : '1v1'})</p>
+                    ${data.teammate ? `<p>Teammate: ${data.teammate}</p>` : ''}
+                    ${data.ready !== undefined ? `<p>Ready: ${data.ready ? '✅ Yes' : '❌ No'}</p>` : ''}
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div class="stats-content">
+                    <h2>${data.player_name} Statistics</h2>
+                    ${statsContent}
+                    ${currentArenaInfo}
+                    <button onclick="closeModal()" style="margin-top: 20px;">Close</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+            window.currentModal = modal;
+        }
+        
+        function showArenaDetailsModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'stats-modal';
+            
+            let slotsInfo = '';
+            if (data.slots && data.slots.length > 0) {
+                slotsInfo = `
+                    <h4>Player Slots</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        ${data.slots.map(slot => `
+                            <div style="border: 1px solid #ddd; padding: 8px; border-radius: 4px; background: ${slot.occupied ? '#d1ecf1' : '#f8f9fa'};">
+                                <strong>Slot ${slot.slot}</strong>
+                                ${slot.occupied ? `
+                                    <br>${slot.player_name}
+                                    ${slot.ready !== undefined ? `<br><small>${slot.ready ? '✅ Ready' : '❌ Not Ready'}</small>` : ''}
+                                ` : '<br><em>Empty</em>'}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div class="stats-content">
+                    <h2>${data.arena_name || `Arena ${data.arena_id}`} Details</h2>
+                    <p><strong>Status:</strong> ${data.status_name || data.status}</p>
+                    <p><strong>Players:</strong> ${data.players}/${data.max_slots}</p>
+                    <p><strong>Type:</strong> ${data.is_2v2 ? '👥 2v2' : '🎯 1v1'}</p>
+                    <p><strong>Game Modes:</strong> ${data.game_mode_names || 'Unknown'}</p>
+                    ${slotsInfo}
+                    <button onclick="closeModal()" style="margin-top: 20px;">Close</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+            window.currentModal = modal;
+        }
+        
+        function setGameModeFilter(mode) {
+            currentGameModeFilter = mode;
+            
+            // Update button states
+            document.querySelectorAll('#gameModeFilters .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            updateArenaDisplay();
+        }
+        
+        function setStatusFilter(status) {
+            currentStatusFilter = status;
+            
+            // Update button states
+            event.target.parentElement.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            updateArenaDisplay();
+        }
+        
+        function checkArenaGameMode(arena, filter) {
+            if (!arena.game_mode) return filter === 'mge'; // Default to MGE if no game mode data
+            
+            const gameModeMap = {
+                'mge': 1 << 0,
+                'bball': 1 << 1, 
+                'koth': 1 << 2,
+                'ammomod': 1 << 3,
+                'midair': 1 << 4,
+                'endif': 1 << 5,
+                'ultiduo': 1 << 6,
+                'turris': 1 << 7,
+                '2v2': 1 << 8
+            };
+            
+            return !!(arena.game_mode & gameModeMap[filter]);
+        }
+        
+        function checkArenaStatus(arena, filter) {
+            switch (filter) {
+                case 'idle': return arena.status === 0; // AS_IDLE
+                case 'fighting': return arena.status === 3; // AS_FIGHT
+                case 'waiting': return arena.status === 6; // AS_WAITING_READY
+                default: return true;
+            }
+        }
+        
+        // Update button states helper
+        function updateButtonStates(connected) {
+            const buttons = ['getArenasBtn', 'getPlayersBtn', 'getServerStatusBtn', 'refreshBtn', 'addPlayerBtn', 'removePlayerBtn'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = !connected;
+            });
+        }
+        
+        // Initialize
+        updateStatus(false);
+    </script>
+</body>
+</html>
